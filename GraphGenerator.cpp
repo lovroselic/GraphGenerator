@@ -32,12 +32,19 @@ using std::chrono::milliseconds;
 class Node {
 public:
 	size_t id;
+	int distance;
+	bool visited;
 	vector<size_t> edges;
 	map<size_t, int> weights;
+	int prev;
 
 	Node(size_t id) {
 		this->id = id;
+		this->distance = numeric_limits<int>::max();
+		this->visited = false;
+		this->prev = -1;
 	}
+
 	int sumWeights() {
 		int sum = 0;
 		for (auto e : this->edges) {
@@ -57,12 +64,15 @@ public:
 	}
 
 	void display() {
-		cout << "graph display: " << endl;
+		cout << "Graph display: " << endl;
 		for (auto node : this->nodes) {
 			cout << "node: " << node->id + 1 << ":";
 			for (auto e : node->edges) {
 				cout << " " << e + 1 << " - " << node->weights[e];
 			}
+			cout << "\t distance: " << node->distance;
+			cout << "\t visited: " << boolalpha << node->visited;
+			cout << "\t prev: " << node->prev;
 			cout << endl;
 		}
 	}
@@ -70,7 +80,7 @@ public:
 	vector<int> sumWeights() {
 		vector<int> sumWeights;
 		for (auto node : this->nodes) {
-			sumWeights.push_back( node->sumWeights());
+			sumWeights.push_back(node->sumWeights());
 		}
 		return sumWeights;
 	}
@@ -91,13 +101,67 @@ public:
 	bool isLinked(size_t source, size_t target) {
 		return find(this->nodes[source]->edges.begin(), this->nodes[source]->edges.end(), target) != this->nodes[source]->edges.end();
 	}
+
+	void setDistance(size_t nodeIndex, int distance) {
+		nodes[nodeIndex]->distance = distance;
+	}
+
+	int getDistance(size_t nodeIndex) {
+		return nodes[nodeIndex]->distance;
+	}
+
+	void setVisited(size_t nodeIndex) {
+		nodes[nodeIndex]->visited = true;
+	}
+
+	int minUnvisited() {
+		int min = numeric_limits<int>::max();
+		int minIndex = -1;
+		for (auto node : this->nodes) {
+			if (!node->visited) {
+				if (node->distance < min) {
+					min = node->distance;
+					minIndex = node->id;
+				}
+			}
+		}
+		return minIndex;
+	}
+
+	vector<size_t> getUnvisitedNeighbours(size_t nodeIndex) {
+		vector<size_t> NB;
+		for (auto e : this->nodes[nodeIndex]->edges) {
+			Node* node = this->nodes[e];
+			if (!node->visited) {
+				NB.push_back(e);
+			}
+		}
+		return NB;
+	}
+
+	int getWeight(size_t nodeIndex, size_t edge) {
+		return nodes[nodeIndex]->weights[edge];
+	}
+
+	void setPrev(size_t nodeIndex, int prev) {
+		this->nodes[nodeIndex]->prev = prev;
+	}
+
+	vector<int> getDistances() {
+		vector<int> distances;
+		for (auto node : this->nodes) {
+			distances.push_back(node->distance);
+		}
+		return distances;
+	}
 };
 
 long long int LinearCongruentialGenerator(int A, int C, int M, int seed);
+void Dijkstra(Graph G, size_t root);
 
 int main() {
 	auto t1 = high_resolution_clock::now();
-	cout << "Graph Generator v" << VERSION << "!\n\n";
+	cout << "Dijkstra v" << VERSION << "!\n\n";
 	//string path = "Test.txt";
 	string path = "Try.txt";
 	vector<string> raw_data = loadData(path);
@@ -108,6 +172,7 @@ int main() {
 	//printVector(data);
 	int N = data.at(0);
 	int X = data.at(1);
+	size_t R = data.at(2);
 	size_t V = 0;
 	int D = 0;
 	const int A = 445;
@@ -123,13 +188,15 @@ int main() {
 			X = LinearCongruentialGenerator(A, C, M, X);
 			D = X % N + 1;
 			if (i == V - 1) continue;
-			if (G.isLinked(i, V-1)) continue;
+			if (G.isLinked(i, V - 1)) continue;
 			G.link(i, V - 1, D);
 		}
 	}
 
-	G.display();
-	cout << "\nSolution: "<< joinVector(G.sumWeights(), " ") << endl;
+	Dijkstra(G, R - 1);
+	//G.display();
+
+	cout << "\nSolution: " << joinVector(G.getDistances()," ") << endl;
 
 	/***********************/
 	auto t2 = high_resolution_clock::now();
@@ -139,4 +206,22 @@ int main() {
 
 long long int LinearCongruentialGenerator(int A, int C, int M, int seed) {
 	return ((static_cast<long long>(A) * seed) + C) % M;
+}
+
+void Dijkstra(Graph G, size_t root) {
+	G.setDistance(root, 0);
+	while (true) {
+		int current = G.minUnvisited();
+		if (current == -1) break;
+		G.setVisited(current);
+		int currentDistance = G.getDistance(current);
+		vector<size_t> NB = G.getUnvisitedNeighbours(current);
+		for (auto n : NB) {
+			int sumDistance = G.getWeight(current, n) + currentDistance;
+			if (sumDistance < G.getDistance(n)) {
+				G.setDistance(n, sumDistance);
+				G.setPrev(n, current);
+			}
+		}
+	}
 }
